@@ -1,0 +1,8 @@
+Date,Time,Original Filename,New Filename,Category,Defect Name,Rectangle Count in Defect
+2025-03-13,19:52:29,asociar-cuenta_desktop_1920x1080_landscape,asociar-cuenta_desktop_1920x1080_landscape_Defect 1_breadcrumb,Bug for current Project,Defect 1,1
+2025-03-13,19:58:32,asociar-cuenta_móvil_375x812_portrait,asociar-cuenta_móvil_375x812_portrait_Defect 1_margen,Bug for current Project,Defect 1,1
+2025-03-13,20:00:00,asociar-cuenta_móvil_812x375_landscape,asociar-cuenta_móvil_812x375_landscape_Defect 1,Bug for current Project,Defect 1,1
+2025-03-13,20:00:27,asociar-cuenta_tableta_1024x768_landscape,asociar-cuenta_tableta_1024x768_landscape_Defect 1_margen,Bug for current Project,Defect 1,1
+2025-03-13,20:05:51,asociar-cuenta_tableta_768x1024_portrait,asociar-cuenta_tableta_768x1024_portrait_Defect 1_posicióndeelemento,Bug for current Project,Defect 1,1
+2025-03-13,20:05:51,asociar-cuenta_tableta_768x1024_portrait,asociar-cuenta_tableta_768x1024_portrait_Defect 2_posicióndeelemento,Bug for current Project,Defect 2,1
+2025-03-13,20:09:37,asociar-cuenta_tableta_768x1024_portrait,asociar-cuenta_tableta_768x1024_portrait_Defect 1_camposdesaliandos,Bug for current Project,Defect 1,1
