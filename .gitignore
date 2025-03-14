@@ -25,6 +25,13 @@ ENV/
 # Project specific
 bug_validator_config.json
 
+# Image directories
+/img/
+/defects img/
+# Keep the directories but not their contents
+!/img/.gitkeep
+!/defects img/.gitkeep
+
 # Windows
 Thumbs.db
 desktop.ini
