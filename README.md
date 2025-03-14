@@ -84,7 +84,3 @@ run_bug_validator.bat
 - Use the "Previous" and "Next" buttons to navigate between images
 - A minimum rectangle size is required to create a defect
 - The undo history stores up to 20 operations
-
-## License
-
-[MIT License](LICENSE) 
