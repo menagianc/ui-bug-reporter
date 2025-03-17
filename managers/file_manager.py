@@ -175,6 +175,12 @@ class FileManager:
         new_filename = defect["rename"]
         if not new_filename:
             return False
+            
+        # Process the filename to include custom suffix if present
+        # Format is "filename_number:custom_suffix"
+        if ":" in new_filename:
+            # Split at the colon to get the custom suffix
+            new_filename = new_filename.replace(":", "_")
         
         # Add extension from original file
         _, ext = os.path.splitext(original_filename)

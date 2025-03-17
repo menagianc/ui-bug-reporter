@@ -43,6 +43,9 @@ class UIManager:
         main_frame = ttk.Frame(self.root)
         main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
+        # Create menu bar
+        self._create_menu_bar()
+        
         # Bind window state events (maximize, etc.)
         self.root.bind("<Map>", self._on_window_map)
         
@@ -332,10 +335,11 @@ class UIManager:
         # Rename frame inside defect details
         rename_frame = ttk.Frame(self.defect_details_frame)
         rename_frame.pack(fill=tk.X, padx=5, pady=5)
-        rename_label = ttk.Label(rename_frame, text="Rename:")
+        rename_label = ttk.Label(rename_frame, text="Custom Filename Suffix:")
         rename_label.pack(side=tk.LEFT)
         rename_entry = ttk.Entry(rename_frame, textvariable=self.rename_var)
         rename_entry.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=5)
+        # Add trace for rename changes
         self.rename_var.trace_add("write", self._on_rename_changed)
         
         # Category frame inside defect details
@@ -413,6 +417,41 @@ class UIManager:
         
         # Set default status message
         self.status_var.set("Ready")
+    
+    def _create_menu_bar(self):
+        """Create the application menu bar"""
+        menubar = tk.Menu(self.root)
+        self.root.config(menu=menubar)
+        
+        # File menu
+        file_menu = tk.Menu(menubar, tearoff=0)
+        file_menu.add_command(label="Select Source Folder", command=self.controller.select_source_folder)
+        file_menu.add_command(label="Select Destination Folder", command=self.controller.select_destination_folder)
+        file_menu.add_separator()
+        file_menu.add_command(label="Save Current Image", command=self.controller.save_image)
+        file_menu.add_command(label="Save and Next", command=self.controller.save_and_next)
+        file_menu.add_separator()
+        file_menu.add_command(label="Exit", command=self.root.quit)
+        menubar.add_cascade(label="File", menu=file_menu)
+        
+        # Edit menu
+        edit_menu = tk.Menu(menubar, tearoff=0)
+        edit_menu.add_command(label="Undo", command=self.controller.undo, accelerator="Ctrl+Z")
+        edit_menu.add_command(label="Redo", command=self.controller.redo, accelerator="Ctrl+Y")
+        menubar.add_cascade(label="Edit", menu=edit_menu)
+        
+        # Debug menu
+        debug_menu = tk.Menu(menubar, tearoff=0)
+        logging_menu = tk.Menu(debug_menu, tearoff=0)
+        logging_menu.add_command(label="Enable Logging", command=lambda: self.controller.toggle_logging(True))
+        logging_menu.add_command(label="Disable Logging", command=lambda: self.controller.toggle_logging(False))
+        logging_menu.add_separator()
+        logging_menu.add_command(label="Set Debug Level", command=lambda: self.controller.set_log_level(self.controller.logger.DEBUG))
+        logging_menu.add_command(label="Set Info Level", command=lambda: self.controller.set_log_level(self.controller.logger.INFO))
+        logging_menu.add_command(label="Set Warning Level", command=lambda: self.controller.set_log_level(self.controller.logger.WARNING))
+        logging_menu.add_command(label="Set Error Level", command=lambda: self.controller.set_log_level(self.controller.logger.ERROR))
+        debug_menu.add_cascade(label="Logging", menu=logging_menu)
+        menubar.add_cascade(label="Debug", menu=debug_menu)
     
     def _update_right_panel_scroll_region(self):
         """Update the scroll region for the right panel after all widgets are added"""
@@ -580,13 +619,14 @@ class UIManager:
                 self.defects_listbox.selection_set(new_index)
                 self.defects_listbox.see(new_index)
     
-    def select_defect(self, index):
+    def select_defect(self, index, trigger_callback=True):
         """Select a defect in the listbox"""
         if 0 <= index < self.defects_listbox.size():
             self.defects_listbox.selection_clear(0, tk.END)
             self.defects_listbox.selection_set(index)
             self.defects_listbox.see(index)
-            self._on_defect_selected(None)
+            if trigger_callback:
+                self._on_defect_selected(None)
     
     def start_draw(self, event):
         """Start drawing a rectangle"""
@@ -668,9 +708,28 @@ class UIManager:
     
     def update_defect_details(self, rename, category):
         """Update the defect detail fields"""
-        self.rename_var.set(rename)
+        # Keep only the defect number for internal tracking, don't show it in the field
+        defect_number = ""
+        if rename and '_' in rename:
+            parts = rename.split('_')
+            defect_number = parts[-1]
+            # Extract only user-defined part after the number, if any
+            if ':' in defect_number:
+                user_part = defect_number.split(':', 1)[1]
+                self.rename_var.set(user_part)
+            else:
+                self.rename_var.set("")
+        else:
+            self.rename_var.set("")
+            defect_number = rename
+            
+        # Update the frame title to include the defect number
+        if defect_number and ':' in defect_number:
+            display_number = defect_number.split(':', 1)[0]
+            self.defect_details_frame.configure(text=f"Defect Details #{display_number}")
+        else:
+            self.defect_details_frame.configure(text=f"Defect Details #{defect_number}")
         self.category_var.set(category)
-        # Don't update results field here as it would overwrite user input
     
     def enable_defect_details(self):
         """Enable the defect detail fields"""
@@ -754,7 +813,8 @@ class UIManager:
     
     def _on_rename_changed(self, *args):
         """Handle changes to the rename field"""
-        self.controller.on_rename_changed(self.rename_var.get())
+        new_name = self.rename_var.get()
+        self.controller.on_rename_changed(new_name)
     
     def _on_category_changed(self, *args):
         """Handle changes to the category field"""

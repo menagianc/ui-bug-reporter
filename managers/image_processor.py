@@ -45,6 +45,26 @@ class ImageProcessor:
             print(f"Error loading image: {e}")
             return False
     
+    def next_image(self):
+        """Move to the next image"""
+        if not self.image_files:
+            return False
+        
+        # Increment index and wrap around if needed
+        next_index = (self.current_index + 1) % len(self.image_files)
+        self.current_index = next_index
+        return next_index
+    
+    def prev_image(self):
+        """Move to the previous image"""
+        if not self.image_files:
+            return False
+        
+        # Decrement index and wrap around if needed
+        prev_index = (self.current_index - 1) % len(self.image_files)
+        self.current_index = prev_index
+        return prev_index
+    
     def resize_image(self, canvas_width, canvas_height):
         """Resize image to fit canvas while maintaining aspect ratio"""
         if not self.original_image:

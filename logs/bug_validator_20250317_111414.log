@@ -1,0 +1,50 @@
+2025-03-17 11:14:14,715 - bug_validator - INFO - Logging initialized at logs\bug_validator_20250317_111414.log
+2025-03-17 11:14:14,716 - bug_validator - INFO - Initializing Bug Validator application
+2025-03-17 11:14:15,734 - bug_validator - DEBUG - Selecting defect with index: 0
+2025-03-17 11:14:16,017 - bug_validator - DEBUG - DefectManager: Retrieved result text for defect 0: ''
+2025-03-17 11:14:16,018 - bug_validator - DEBUG - No result text found for defect 0
+2025-03-17 11:14:22,709 - bug_validator - INFO - Saving image with all defects
+2025-03-17 11:14:22,709 - bug_validator - DEBUG - Before saving: Updating result text for defect 0: ''
+2025-03-17 11:14:22,710 - bug_validator - DEBUG - DefectManager: Updated result text for defect 0 from '' to ''
+2025-03-17 11:14:22,712 - bug_validator - DEBUG - DefectManager: Retrieved result text for defect 0: ''
+2025-03-17 11:14:22,712 - bug_validator - DEBUG - Defect 0: Name=Defect 1, Rename=baja-de-servicio_desktop_1920x1080_landscape_loadAccount_false_1, Result Text=''
+2025-03-17 11:14:31,113 - bug_validator - DEBUG - Before adding defect: Saving result text from defect 0: 'hola'
+2025-03-17 11:14:31,114 - bug_validator - DEBUG - DefectManager: Updated result text for defect 0 from '' to 'hola'
+2025-03-17 11:14:31,119 - bug_validator - DEBUG - Selecting defect with index: 1
+2025-03-17 11:14:31,120 - bug_validator - DEBUG - Saving result text from defect 0: ''
+2025-03-17 11:14:31,120 - bug_validator - DEBUG - DefectManager: Updated result text for defect 0 from 'hola' to ''
+2025-03-17 11:14:31,133 - bug_validator - DEBUG - DefectManager: Retrieved result text for defect 1: ''
+2025-03-17 11:14:31,134 - bug_validator - DEBUG - No result text found for defect 1
+2025-03-17 11:14:37,379 - bug_validator - INFO - Saving image with all defects
+2025-03-17 11:14:37,379 - bug_validator - DEBUG - Before saving: Updating result text for defect 1: ''
+2025-03-17 11:14:37,380 - bug_validator - DEBUG - DefectManager: Updated result text for defect 1 from '' to ''
+2025-03-17 11:14:37,380 - bug_validator - DEBUG - DefectManager: Retrieved result text for defect 0: ''
+2025-03-17 11:14:37,381 - bug_validator - DEBUG - Defect 0: Name=Defect 1, Rename=baja-de-servicio_desktop_1920x1080_landscape_loadAccount_false_1:hola, Result Text=''
+2025-03-17 11:14:42,461 - bug_validator - DEBUG - Selecting defect with index: 0
+2025-03-17 11:14:42,462 - bug_validator - DEBUG - Saving result text from defect 1: 'adios'
+2025-03-17 11:14:42,462 - bug_validator - DEBUG - DefectManager: Updated result text for defect 1 from '' to 'adios'
+2025-03-17 11:14:42,467 - bug_validator - DEBUG - DefectManager: Retrieved result text for defect 0: ''
+2025-03-17 11:14:42,467 - bug_validator - DEBUG - No result text found for defect 0
+2025-03-17 11:14:45,391 - bug_validator - DEBUG - Selecting defect with index: 1
+2025-03-17 11:14:45,391 - bug_validator - DEBUG - Saving result text from defect 0: 'hola'
+2025-03-17 11:14:45,392 - bug_validator - DEBUG - DefectManager: Updated result text for defect 0 from '' to 'hola'
+2025-03-17 11:14:45,395 - bug_validator - DEBUG - DefectManager: Retrieved result text for defect 1: 'adios'
+2025-03-17 11:14:45,396 - bug_validator - DEBUG - Loading result text for defect 1: 'adios'
+2025-03-17 11:14:46,150 - bug_validator - DEBUG - Selecting defect with index: 0
+2025-03-17 11:14:46,151 - bug_validator - DEBUG - Saving result text from defect 1: 'adios'
+2025-03-17 11:14:46,151 - bug_validator - DEBUG - DefectManager: Updated result text for defect 1 from 'adios' to 'adios'
+2025-03-17 11:14:46,154 - bug_validator - DEBUG - DefectManager: Retrieved result text for defect 0: 'hola'
+2025-03-17 11:14:46,154 - bug_validator - DEBUG - Loading result text for defect 0: 'hola'
+2025-03-17 11:14:47,376 - bug_validator - INFO - Saving image with all defects
+2025-03-17 11:14:47,377 - bug_validator - DEBUG - Before saving: Updating result text for defect 0: 'hola'
+2025-03-17 11:14:47,377 - bug_validator - DEBUG - DefectManager: Updated result text for defect 0 from 'hola' to 'hola'
+2025-03-17 11:14:47,378 - bug_validator - DEBUG - DefectManager: Retrieved result text for defect 0: 'hola'
+2025-03-17 11:14:47,378 - bug_validator - DEBUG - Defect 0: Name=Defect 1, Rename=baja-de-servicio_desktop_1920x1080_landscape_loadAccount_false_1:hola, Result Text='hola'
+2025-03-17 11:14:47,378 - bug_validator - DEBUG - DefectManager: Retrieved result text for defect 1: 'adios'
+2025-03-17 11:14:47,378 - bug_validator - DEBUG - Defect 1: Name=Defect 2, Rename=baja-de-servicio_desktop_1920x1080_landscape_loadAccount_false_2:adios, Result Text='adios'
+2025-03-17 11:14:47,675 - bug_validator - INFO - Moving to next image
+2025-03-17 11:14:47,676 - bug_validator - DEBUG - Before next image: Saving result text from defect 0: ''
+2025-03-17 11:14:47,676 - bug_validator - DEBUG - DefectManager: Updated result text for defect 0 from 'hola' to ''
+2025-03-17 11:14:47,770 - bug_validator - DEBUG - Selecting defect with index: 0
+2025-03-17 11:14:47,784 - bug_validator - DEBUG - DefectManager: Retrieved result text for defect 0: ''
+2025-03-17 11:14:47,785 - bug_validator - DEBUG - No result text found for defect 0

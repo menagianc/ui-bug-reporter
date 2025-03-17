@@ -1,4 +1,5 @@
 import copy
+import logging
 
 class DefectManager:
     """
@@ -13,6 +14,9 @@ class DefectManager:
         
         # Selected rectangle index within the defect
         self.selected_rectangle_index = -1
+        
+        # Get logger
+        self.logger = logging.getLogger("bug_validator")
     
     def add_defect(self, name, rename, category):
         """Add a new defect instance with no rectangles yet"""
@@ -79,6 +83,10 @@ class DefectManager:
     
     def get_defects(self):
         """Get all defects"""
+        return self.defects
+    
+    def get_all_defects(self):
+        """Alias for get_defects for backwards compatibility"""
         return self.defects
     
     def get_defects_copy(self):
@@ -160,4 +168,26 @@ class DefectManager:
             defect = self.defects[self.selected_index]
             defect[property_name] = value
             return True
-        return False 
+        return False
+    
+    def update_result_text(self, defect_index, result_text):
+        """Update the result text for a specific defect with debug logging"""
+        if 0 <= defect_index < len(self.defects):
+            old_text = self.defects[defect_index].get("result_text", "")
+            self.defects[defect_index]["result_text"] = result_text
+            self.logger.debug(f"DefectManager: Updated result text for defect {defect_index} "
+                             f"from '{old_text}' to '{result_text}'")
+            return True
+        else:
+            self.logger.warning(f"DefectManager: Attempted to update result text for invalid defect index {defect_index}")
+            return False
+
+    def get_defect_result_text(self, defect_index):
+        """Get the result text for a specific defect with debug logging"""
+        if 0 <= defect_index < len(self.defects):
+            result_text = self.defects[defect_index].get("result_text", "")
+            self.logger.debug(f"DefectManager: Retrieved result text for defect {defect_index}: '{result_text}'")
+            return result_text
+        else:
+            self.logger.warning(f"DefectManager: Attempted to get result text for invalid defect index {defect_index}")
+            return "" 
