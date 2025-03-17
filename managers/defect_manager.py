@@ -85,10 +85,6 @@ class DefectManager:
         """Get all defects"""
         return self.defects
     
-    def get_all_defects(self):
-        """Alias for get_defects for backwards compatibility"""
-        return self.defects
-    
     def get_defects_copy(self):
         """Get a deep copy of all defects for history management"""
         return copy.deepcopy(self.defects)
