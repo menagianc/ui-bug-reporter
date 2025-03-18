@@ -677,6 +677,11 @@ class AppController:
             # Check if rename value is set
             has_rename = defect.get("rename", "").strip() != ""
             
+            # Check if custom filename suffix is present (indicated by a colon in the rename field)
+            has_custom_suffix = False
+            if defect and "rename" in defect:
+                has_custom_suffix = ":" in defect["rename"]
+            
             # Check if result text is empty - use dedicated method
             result_text = self.defect_manager.get_defect_result_text(i)
             has_result_text = len(result_text) > 0
@@ -693,6 +698,11 @@ class AppController:
             # Check validation conditions
             if not has_rename:
                 self.ui_manager.show_warning(f"Please set a valid filename for {defect['name']} before saving.")
+                return False
+            
+            # Check if custom filename suffix is empty
+            if not has_custom_suffix:
+                self.ui_manager.show_warning(f"Please fill in the Custom Filename Suffix field for {defect['name']} before saving.")
                 return False
             
             if not has_result_text:
