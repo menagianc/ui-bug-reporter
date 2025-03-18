@@ -686,6 +686,10 @@ class AppController:
                               f"Rename={defect.get('rename', 'N/A')}, "
                               f"Result Text='{result_text}'")
             
+            # Skip validation for "No defects found" category
+            if defect.get("category") == "No defects found":
+                continue
+            
             # Check validation conditions
             if not has_rename:
                 self.ui_manager.show_warning(f"Please set a valid filename for {defect['name']} before saving.")

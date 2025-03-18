@@ -32,6 +32,10 @@ bug_validator_config.json
 !/img/.gitkeep
 !/defects img/.gitkeep
 
+# Log files
+/logs/
+/logs/*.log
+
 # Windows
 Thumbs.db
 desktop.ini
