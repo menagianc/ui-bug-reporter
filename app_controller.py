@@ -5,9 +5,12 @@ from managers.file_manager import FileManager
 from managers.defect_manager import DefectManager
 from managers.history_manager import HistoryManager
 from managers.logger_manager import LoggerManager
+from managers.excel_manager import ExcelManager
 from PIL import ImageDraw
 import os
 import copy
+import csv
+from datetime import datetime
 
 class AppController:
     """
@@ -37,6 +40,7 @@ class AppController:
         self.image_processor = ImageProcessor()
         self.defect_manager = DefectManager()
         self.history_manager = HistoryManager(max_history=20)
+        self.excel_manager = ExcelManager()
         
         # Pan variables
         self.pan_start_x = 0
@@ -151,7 +155,7 @@ class AppController:
         defect = self.defect_manager.add_defect(
             name=defect_name,
             rename=f"{filename}_1",  # Just use number without user text
-            category=self.file_manager.get_categories()[0]
+            category=""
         )
         
         # Clear results text field
@@ -212,7 +216,7 @@ class AppController:
         defect = self.defect_manager.add_defect(
             name=defect_name,
             rename=f"{filename}_{defect_count}",  # Just use number without user text
-            category=self.file_manager.get_categories()[0]
+            category=""
         )
         
         # Clear results text for the new defect
@@ -227,7 +231,7 @@ class AppController:
         self.ui_manager.select_defect(new_index, trigger_callback=False)
         self.ui_manager.update_defect_details(
             defect['rename'],
-            defect['category']
+            ""
         )
         self.ui_manager.enable_defect_details()
         
@@ -360,72 +364,58 @@ class AppController:
     
     def on_defect_selected(self, index):
         """Handle defect selection"""
-        self.logger.debug(f"Selecting defect with index: {index}")
+        self.logger.debug(f"Defect selected: index={index}")
         
-        # Save current results text to the current defect before switching
-        current_selected_index = self.defect_manager.get_selected_index()
-        if current_selected_index >= 0:
-            current_results_text = self.ui_manager.get_result_text()
-            # Use dedicated method for updating result text
-            self.logger.debug(f"Saving result text from defect {current_selected_index}: '{current_results_text}'")
-            
-            # Only update if the text is not empty or if it previously had text
-            previous_text = self.defect_manager.get_defect_result_text(current_selected_index)
-            if current_results_text or previous_text:
-                self.defect_manager.update_result_text(current_selected_index, current_results_text)
+        # First, save the result text from the previously selected defect
+        prev_index = self.defect_manager.get_selected_index()
+        if prev_index >= 0 and prev_index != index:
+            prev_results_text = self.ui_manager.get_result_text()
+            self.logger.debug(f"Saving result text from previous defect {prev_index}: '{prev_results_text}'")
+            self.defect_manager.update_result_text(prev_index, prev_results_text)
         
-        # First deselect the current defect and clear ALL rectangles
-        self.defect_manager.deselect_defect()
-        
-        # Clear ALL rectangles from the canvas before doing anything else (both defect and drawing tags)
-        self.ui_manager.canvas.delete("defect")
-        self.ui_manager.canvas.delete("drawing")
-        
-        # Force canvas to refresh completely
-        self.ui_manager.canvas.update_idletasks()
-        self.ui_manager.canvas.update()
-        
-        if 0 <= index < self.defect_manager.get_defect_count():
-            # Now select the new defect
-            self.defect_manager.select_defect(index)
-            defect = self.defect_manager.get_selected_defect()
-            
-            # Ensure the rename field has a valid value
-            if not defect.get('rename'):
-                filename, _ = self.image_processor.get_current_filename_parts()
-                defect_count = index + 1
-                defect['rename'] = f"{filename}_{defect_count}"
-            
-            # Update UI details - the UI manager will extract just the user suffix for display
-            self.ui_manager.update_defect_details(
-                defect['rename'],
-                defect['category']
-            )
-            self.ui_manager.enable_defect_details()
-            
-            # Load results text for this defect - ensure it's loaded properly
-            self.ui_manager.clear_result_text()
-            # Get result text using dedicated method
-            result_text = self.defect_manager.get_defect_result_text(index)
-            if result_text:
-                self.logger.debug(f"Loading result text for defect {index}: '{result_text}'")
-                self.ui_manager.set_result_text(result_text)
-            else:
-                self.logger.debug(f"No result text found for defect {index}")
-            
-            # Update rectangles list
-            self.ui_manager.update_rectangles_list(index)
-            
-            # Draw ONLY the selected defect's rectangles
-            self._draw_selected_defect_rectangles()
-            
-            # Highlight the defect in the listbox
-            self.ui_manager.highlight_defect(index)
-        else:
-            # If no defect selected, just clear everything
+        # Check if valid index
+        if index < 0:
+            self.defect_manager.deselect_defect()
             self.ui_manager.disable_defect_details()
-            self.ui_manager.clear_rectangles_list()
             self.ui_manager.clear_result_text()
+            self.ui_manager.clear_rectangles_list()
+            self.ui_manager.canvas.delete("defect")
+            
+            # Add to history after changing selection
+            self.add_to_history()
+            return False
+        
+        # Update all UI components based on selection
+        defect = self.defect_manager.get_defect(index)
+        if not defect:
+            return False
+            
+        self.defect_manager.select_defect(index)
+        
+        # Clear canvas and redraw only the selected defect rectangles
+        self._draw_selected_defect_rectangles()
+        
+        # Show defect details in form
+        self.ui_manager.update_defect_details(
+            defect['rename'],
+            ""
+        )
+        
+        # Set result text from the defect
+        result_text = defect.get("result_text", "")
+        self.logger.debug(f"Setting result text for defect {index}: '{result_text}'")
+        self.ui_manager.set_result_text(result_text)
+        
+        # Enable form controls
+        self.ui_manager.enable_defect_details()
+        
+        # Update rectangles list for this defect
+        self.ui_manager.update_rectangles_list(index)
+        
+        # Add to history after changing selection
+        self.add_to_history()
+        
+        return True
     
     def _draw_selected_defect_rectangles(self):
         """Draw only the currently selected defect's rectangles"""
@@ -559,29 +549,32 @@ class AppController:
         self.add_to_history()
     
     def on_rename_changed(self, new_name):
-        """Update defect rename property"""
-        defect_index = self.defect_manager.get_selected_index()
-        if defect_index >= 0:
-            # Get the current defect
-            defect = self.defect_manager.get_defect(defect_index)
-            if defect:
-                # Get the base filename and defect number
-                filename, _ = self.image_processor.get_current_filename_parts()
-                defect_number = defect_index + 1
-                
-                # If the user entered something, format is filename_number:user_input
-                # Otherwise, just use filename_number
-                if new_name:
-                    defect['rename'] = f"{filename}_{defect_number}:{new_name}"
-                else:
-                    defect['rename'] = f"{filename}_{defect_number}"
-                
-                # Add to history
-                self.add_to_history()
-    
-    def on_category_changed(self, new_category):
-        """Update defect category property"""
-        self.defect_manager.update_selected_defect_property('category', new_category)
+        """Handle rename field changes"""
+        self.logger.debug(f"Rename changed to: {new_name}")
+        
+        selected_index = self.defect_manager.get_selected_index()
+        if selected_index < 0:
+            return False
+            
+        # Get the current defect
+        defect = self.defect_manager.get_defect(selected_index)
+        if defect:
+            # Get the base filename and defect number
+            filename, _ = self.image_processor.get_current_filename_parts()
+            defect_number = selected_index + 1
+            
+            # If the user entered something, format is filename_number:user_input
+            # Otherwise, just use filename_number
+            if new_name:
+                defect['rename'] = f"{filename}_{defect_number}:{new_name}"
+            else:
+                defect['rename'] = f"{filename}_{defect_number}"
+            
+            # Add to history
+            self.add_to_history()
+            return True
+            
+        return False
     
     def add_to_history(self):
         """Add current state to history"""
@@ -686,14 +679,13 @@ class AppController:
             result_text = self.defect_manager.get_defect_result_text(i)
             has_result_text = len(result_text) > 0
             
+            # Check if defect has rectangles
+            has_rectangles = defect.get("rectangles") and len(defect.get("rectangles", [])) > 0
+            
             # Log the values for debugging
             self.logger.debug(f"Defect {i}: Name={defect.get('name', 'N/A')}, "
                               f"Rename={defect.get('rename', 'N/A')}, "
                               f"Result Text='{result_text}'")
-            
-            # Skip validation for "No defects found" category
-            if defect.get("category") == "No defects found":
-                continue
             
             # Check validation conditions
             if not has_rename:
@@ -707,6 +699,10 @@ class AppController:
             
             if not has_result_text:
                 self.ui_manager.show_warning(f"Please fill in the Result field for {defect['name']} before saving.")
+                return False
+                
+            if not has_rectangles:
+                self.ui_manager.show_warning(f"Please create at least one rectangle for {defect['name']} before saving.")
                 return False
         
         # Get all defects (again, in case any updates happened during validation)
@@ -830,7 +826,7 @@ class AppController:
             return False
         
         # Log defect details for debugging
-        print(f"Saving defect: {defect['name']}, Category: {defect['category']}, Rectangle count: {len(defect['rectangles'])}")
+        print(f"Saving defect: {defect['name']}, Rectangle count: {len(defect['rectangles'])}")
         
         # Create a copy of the original image to draw on
         output_image = original_image.copy()
@@ -879,13 +875,6 @@ class AppController:
         csv_path = os.path.join(self.destination_folder, "validation_log.csv")
         csv_exists = os.path.exists(csv_path)
         
-        # Get category and create path
-        category = defect["category"]
-        category_folder = os.path.join(self.destination_folder, category.replace(" ", "_"))
-        
-        # Create the folder if it doesn't exist
-        os.makedirs(category_folder, exist_ok=True)
-        
         # Get new filename for this defect
         new_filename = defect["rename"]
         if not new_filename:
@@ -893,14 +882,43 @@ class AppController:
         
         # Add extension from original file
         _, ext = os.path.splitext(original_filename)
-        new_filepath = os.path.join(category_folder, new_filename + ext)
+        new_filepath = os.path.join(self.destination_folder, new_filename + ext)
         
         # Save the image
         try:
             output_image.save(new_filepath)
+            
+            # Record in CSV log
+            with open(csv_path, 'a', newline='') as csvfile:
+                csv_writer = csv.writer(csvfile)
+                
+                # Write header if file is new
+                if not csv_exists:
+                    csv_writer.writerow([
+                        "Date", "Time", "Original Filename", "New Filename", 
+                        "Defect Name", "Rectangle Count in Defect"
+                    ])
+                
+                # Write data for the defect
+                now = datetime.now()
+                # Get base filename without extension for both original and new filenames
+                original_base_filename, _ = os.path.splitext(original_filename)
+                csv_writer.writerow([
+                    now.strftime("%Y-%m-%d"),
+                    now.strftime("%H:%M:%S"),
+                    original_base_filename,
+                    new_filename,  # Already without extension
+                    defect["name"],
+                    rectangles_drawn  # Number of rectangles actually drawn
+                ])
+            
+            # Update Excel file with results using the Excel Manager
+            self.excel_manager.save_defect_result(self.destination_folder, new_filename + ext, result_text)
+            
             return True
+            
         except Exception as e:
-            print(f"Error saving image: {e}")
+            print(f"Failed to save {new_filename + ext}: {str(e)}")
             return False
 
     def toggle_logging(self, enabled=None):
@@ -924,4 +942,10 @@ class AppController:
                     "WARNING" if level == LoggerManager.WARNING else \
                     "ERROR" if level == LoggerManager.ERROR else \
                     "CRITICAL"
-        self.ui_manager.update_status(f"Log level set to {level_name}") 
+        self.ui_manager.update_status(f"Log level set to {level_name}")
+
+    def no_defects_found(self):
+        """Handle 'No Defects Found' button click - move to next image without saving"""
+        self.logger.info("No defects found - moving to next image without saving")
+        self.ui_manager.clear_canvas()
+        self.next_image() 

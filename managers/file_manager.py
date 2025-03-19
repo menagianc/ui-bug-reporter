@@ -4,8 +4,6 @@ import csv
 from datetime import datetime
 from tkinter import filedialog
 from PIL import Image, ImageDraw
-import openpyxl
-from openpyxl import Workbook
 from managers.excel_manager import ExcelManager
 
 class FileManager:
@@ -16,9 +14,6 @@ class FileManager:
         # Paths
         self.source_folder = ""
         self.destination_folder = ""
-        
-        # Categories
-        self.categories = ["Bug for current Project", "Bug for other Project", "No defects found"]
         
         # Configuration file
         self.config_file = "bug_validator_config.json"
@@ -68,22 +63,12 @@ class FileManager:
         return None
     
     def select_destination_folder(self):
-        """Open dialog to select destination folder and create category folders"""
-        folder = filedialog.askdirectory(title="Select Destination Base Folder")
+        """Open dialog to select destination folder"""
+        folder = filedialog.askdirectory(title="Select Destination Folder")
         if folder:
             self.destination_folder = folder
-            
-            # Create category subfolders
-            for category in self.categories:
-                category_folder = os.path.join(folder, category.replace(" ", "_"))
-                os.makedirs(category_folder, exist_ok=True)
-            
             return folder
         return None
-    
-    def get_categories(self):
-        """Get available categories"""
-        return self.categories
     
     def check_folders(self):
         """Check if source and destination folders are set"""
@@ -115,7 +100,7 @@ class FileManager:
             return False
         
         # Log defect details for debugging
-        print(f"Saving defect: {defect['name']}, Category: {defect['category']}, Rectangle count: {len(defect['rectangles'])}")
+        print(f"Saving defect: {defect['name']}, Rectangle count: {len(defect['rectangles'])}")
         
         # Create a copy of the original image to draw on
         output_image = original_image.copy()
@@ -164,13 +149,6 @@ class FileManager:
         csv_path = os.path.join(self.destination_folder, "validation_log.csv")
         csv_exists = os.path.exists(csv_path)
         
-        # Get category and create path
-        category = defect["category"]
-        category_folder = os.path.join(self.destination_folder, category.replace(" ", "_"))
-        
-        # Create the folder if it doesn't exist
-        os.makedirs(category_folder, exist_ok=True)
-        
         # Get new filename for this defect
         new_filename = defect["rename"]
         if not new_filename:
@@ -184,7 +162,7 @@ class FileManager:
         
         # Add extension from original file
         _, ext = os.path.splitext(original_filename)
-        new_filepath = os.path.join(category_folder, new_filename + ext)
+        new_filepath = os.path.join(self.destination_folder, new_filename + ext)
         
         # Save the image
         try:
@@ -197,7 +175,7 @@ class FileManager:
                 # Write header if file is new
                 if not csv_exists:
                     csv_writer.writerow([
-                        "Date", "Time", "Original Filename", "New Filename", "Category", 
+                        "Date", "Time", "Original Filename", "New Filename", 
                         "Defect Name", "Rectangle Count in Defect"
                     ])
                 
@@ -210,13 +188,12 @@ class FileManager:
                     now.strftime("%H:%M:%S"),
                     original_base_filename,
                     new_filename,  # Already without extension
-                    category,
                     defect["name"],
                     rectangles_drawn  # Number of rectangles actually drawn
                 ])
             
             # Update Excel file with results using the Excel Manager
-            self.excel_manager.save_defect_result(category_folder, new_filename + ext, result_text)
+            self.excel_manager.save_defect_result(self.destination_folder, new_filename + ext, result_text)
             
             return True
             

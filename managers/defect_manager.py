@@ -18,12 +18,11 @@ class DefectManager:
         # Get logger
         self.logger = logging.getLogger("bug_validator")
     
-    def add_defect(self, name, rename, category):
+    def add_defect(self, name, rename, category=""):
         """Add a new defect instance with no rectangles yet"""
         defect = {
             "name": name,
             "rename": rename,
-            "category": category,
             "rectangles": [],  # List to hold multiple rectangles
             "result_text": ""  # Add result text field for each defect
         }

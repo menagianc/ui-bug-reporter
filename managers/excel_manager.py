@@ -25,19 +25,19 @@ class ExcelManager:
         
         return wb, ws
     
-    def save_defect_result(self, category_folder, filename, result_text):
+    def save_defect_result(self, destination_folder, filename, result_text):
         """
         Save defect result to Excel file
         
         Args:
-            category_folder (str): Path to the category folder
+            destination_folder (str): Path to the destination folder
             filename (str): The filename (with or without extension)
             result_text (str): Result text to save
             
         Returns:
             bool: True if successful, False otherwise
         """
-        excel_path = os.path.join(category_folder, self.default_excel_filename)
+        excel_path = os.path.join(destination_folder, self.default_excel_filename)
         
         # Strip the file extension to save only the base filename
         base_filename, _ = os.path.splitext(filename)
@@ -58,10 +58,10 @@ class ExcelManager:
     
     def generate_summary_report(self, base_folder):
         """
-        Generate a summary report Excel file with statistics from all categories
+        Generate a summary report Excel file with statistics
         
         Args:
-            base_folder (str): Base folder containing category folders
+            base_folder (str): Base folder for the report
             
         Returns:
             str: Path to the generated report file or None if failed

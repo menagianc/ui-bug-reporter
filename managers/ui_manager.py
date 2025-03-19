@@ -22,7 +22,6 @@ class UIManager:
         self.nav_label = None
         self.defects_listbox = None
         self.rename_var = tk.StringVar()
-        self.category_var = tk.StringVar()
         self.defect_details_frame = None
         self.rectangles_listbox = None
         self.result_var = tk.StringVar()
@@ -342,18 +341,6 @@ class UIManager:
         # Add trace for rename changes
         self.rename_var.trace_add("write", self._on_rename_changed)
         
-        # Category frame inside defect details
-        category_frame = ttk.Frame(self.defect_details_frame)
-        category_frame.pack(fill=tk.X, padx=5, pady=5)
-        category_label = ttk.Label(category_frame, text="Category:")
-        category_label.pack(side=tk.LEFT)
-        self.category_var.set(self.controller.file_manager.get_categories()[0])
-        category_combo = ttk.Combobox(category_frame, textvariable=self.category_var, 
-                                      values=self.controller.file_manager.get_categories(), 
-                                      state="readonly")
-        category_combo.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=5)
-        self.category_var.trace_add("write", self._on_category_changed)
-        
         # Result frame inside defect details
         result_frame = ttk.Frame(self.defect_details_frame)
         result_frame.pack(fill=tk.X, padx=5, pady=5)
@@ -386,9 +373,17 @@ class UIManager:
         save_frame = ttk.LabelFrame(right_panel, text="Save")
         save_frame.pack(fill=tk.X, pady=5)
         
-        save_next_btn = ttk.Button(save_frame, text="Save & Next", 
-                                   command=self.controller.save_and_next)
-        save_next_btn.pack(fill=tk.X, padx=5, pady=5)
+        # Create a frame for buttons to be side-by-side
+        save_buttons_frame = ttk.Frame(save_frame)
+        save_buttons_frame.pack(fill=tk.X, padx=5, pady=5)
+        
+        save_next_btn = ttk.Button(save_buttons_frame, text="Save & Next", 
+                                  command=self.controller.save_and_next)
+        save_next_btn.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 2))
+        
+        no_defects_btn = ttk.Button(save_buttons_frame, text="No Defects Found", 
+                                   command=self.controller.no_defects_found)
+        no_defects_btn.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=(2, 0))
         
         # Navigation buttons
         nav_buttons_frame = ttk.Frame(right_panel)
@@ -706,30 +701,19 @@ class UIManager:
             
         return (width, height)
     
-    def update_defect_details(self, rename, category):
-        """Update the defect detail fields"""
-        # Keep only the defect number for internal tracking, don't show it in the field
-        defect_number = ""
-        if rename and '_' in rename:
-            parts = rename.split('_')
-            defect_number = parts[-1]
-            # Extract only user-defined part after the number, if any
-            if ':' in defect_number:
-                user_part = defect_number.split(':', 1)[1]
-                self.rename_var.set(user_part)
-            else:
-                self.rename_var.set("")
-        else:
-            self.rename_var.set("")
-            defect_number = rename
-            
-        # Update the frame title to include the defect number
-        if defect_number and ':' in defect_number:
-            display_number = defect_number.split(':', 1)[0]
-            self.defect_details_frame.configure(text=f"Defect Details #{display_number}")
-        else:
-            self.defect_details_frame.configure(text=f"Defect Details #{defect_number}")
-        self.category_var.set(category)
+    def update_defect_details(self, rename, category=None):
+        """Update defect details in the UI"""
+        # Extract just the custom suffix for display
+        # Format stored is "filename_number:custom_suffix"
+        # We only want to show "custom_suffix" in the entry
+        displayed_suffix = ""
+        if rename:
+            # If there's a colon, extract the part after it
+            if ":" in rename:
+                displayed_suffix = rename.split(":", 1)[1]
+                
+        # Set the value for the rename entry without triggering the callback
+        self.rename_var.set(displayed_suffix)
     
     def enable_defect_details(self):
         """Enable the defect detail fields"""
@@ -816,10 +800,6 @@ class UIManager:
         new_name = self.rename_var.get()
         self.controller.on_rename_changed(new_name)
     
-    def _on_category_changed(self, *args):
-        """Handle changes to the category field"""
-        self.controller.on_category_changed(self.category_var.get())
-    
     def get_result_text(self):
         """Get the contents of the result text field"""
         if hasattr(self, 'result_text'):
@@ -845,10 +825,6 @@ class UIManager:
     def show_warning(self, message):
         """Show a warning message"""
         messagebox.showwarning("Warning", message)
-    
-    def show_error(self, message):
-        """Show an error message"""
-        messagebox.showerror("Error", message)
     
     def update_status(self, message, clear_after=5000):
         """Update status bar with a message, optionally clear after a delay"""
