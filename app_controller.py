@@ -5,7 +5,6 @@ from managers.file_manager import FileManager
 from managers.defect_manager import DefectManager
 from managers.history_manager import HistoryManager
 from managers.logger_manager import LoggerManager
-from managers.excel_manager import ExcelManager
 from PIL import ImageDraw
 import os
 import copy
@@ -40,7 +39,6 @@ class AppController:
         self.image_processor = ImageProcessor()
         self.defect_manager = DefectManager()
         self.history_manager = HistoryManager(max_history=20)
-        self.excel_manager = ExcelManager()
         
         # Pan variables
         self.pan_start_x = 0
@@ -187,7 +185,10 @@ class AppController:
             # Check if there's a custom suffix (indicated by a colon in the rename field)
             has_custom_suffix = False
             if current_defect and "rename" in current_defect:
-                has_custom_suffix = ":" in current_defect["rename"]
+                # Check if there's a colon AND content after the colon
+                if ":" in current_defect["rename"]:
+                    suffix = current_defect["rename"].split(":", 1)[1]
+                    has_custom_suffix = bool(suffix.strip())
             
             # Check if result text is empty
             if not current_results_text.strip():
@@ -215,7 +216,7 @@ class AppController:
         # Add a new defect with no rectangles yet, using sequential number
         defect = self.defect_manager.add_defect(
             name=defect_name,
-            rename=f"{filename}_{defect_count}",  # Just use number without user text
+            rename=f"{filename}_{defect_count}:",  # Add colon to indicate suffix is needed
             category=""
         )
         
@@ -549,32 +550,21 @@ class AppController:
         self.add_to_history()
     
     def on_rename_changed(self, new_name):
-        """Handle rename field changes"""
-        self.logger.debug(f"Rename changed to: {new_name}")
-        
-        selected_index = self.defect_manager.get_selected_index()
-        if selected_index < 0:
-            return False
-            
-        # Get the current defect
-        defect = self.defect_manager.get_defect(selected_index)
-        if defect:
-            # Get the base filename and defect number
-            filename, _ = self.image_processor.get_current_filename_parts()
-            defect_number = selected_index + 1
-            
-            # If the user entered something, format is filename_number:user_input
-            # Otherwise, just use filename_number
-            if new_name:
-                defect['rename'] = f"{filename}_{defect_number}:{new_name}"
-            else:
-                defect['rename'] = f"{filename}_{defect_number}"
+        """Handle changes to the rename field"""
+        # Update the rename value in the current defect
+        current_index = self.defect_manager.get_selected_index()
+        if current_index >= 0:
+            current_defect = self.defect_manager.get_defect(current_index)
+            if current_defect:
+                # Get the base filename without extension
+                filename_base, _ = self.image_processor.get_current_filename_parts()
+                # Get defect number (index + 1)
+                defect_number = current_index + 1
+                # Update the rename value with proper format
+                current_defect["rename"] = f"{filename_base}_{defect_number}:{new_name}"
             
             # Add to history
             self.add_to_history()
-            return True
-            
-        return False
     
     def add_to_history(self):
         """Add current state to history"""
@@ -648,103 +638,123 @@ class AppController:
             self.ui_manager.disable_defect_details()
     
     def save_image(self):
-        """Save the image with all defects"""
+        """Save the current image with all active defects"""
         self.logger.info("Saving image with all defects")
         
-        # Check if there are any defects to save
-        if self.defect_manager.get_defect_count() == 0:
-            self.ui_manager.show_warning("No defects to save.")
-            return False
-        
-        # Save current results text to the current defect - IMPORTANT to capture latest changes
+        # Debug log current state before saving
         current_selected_index = self.defect_manager.get_selected_index()
+        self.logger.debug(f"Current selected defect index: {current_selected_index}")
+        
+        # Ensure we have all required data
+        if not self.image_processor.has_current_image() or not self.image_processor.get_current_filename():
+            self.logger.error("No image loaded or filename is missing")
+            return False
+            
+        # Save the results from current defect before proceeding
         if current_selected_index >= 0:
             current_results_text = self.ui_manager.get_result_text()
-            # Use dedicated method for updating result text
             self.logger.debug(f"Before saving: Updating result text for defect {current_selected_index}: '{current_results_text}'")
             self.defect_manager.update_result_text(current_selected_index, current_results_text)
         
-        # Check all defects for custom filename suffix and result text
+        # Check if any defects are marked
         defects = self.defect_manager.get_defects()
-        for i, defect in enumerate(defects):
-            # Check if rename value is set
-            has_rename = defect.get("rename", "").strip() != ""
-            
-            # Check if custom filename suffix is present (indicated by a colon in the rename field)
-            has_custom_suffix = False
-            if defect and "rename" in defect:
-                has_custom_suffix = ":" in defect["rename"]
-            
-            # Check if result text is empty - use dedicated method
-            result_text = self.defect_manager.get_defect_result_text(i)
-            has_result_text = len(result_text) > 0
-            
-            # Check if defect has rectangles
-            has_rectangles = defect.get("rectangles") and len(defect.get("rectangles", [])) > 0
-            
-            # Log the values for debugging
-            self.logger.debug(f"Defect {i}: Name={defect.get('name', 'N/A')}, "
-                              f"Rename={defect.get('rename', 'N/A')}, "
-                              f"Result Text='{result_text}'")
-            
-            # Check validation conditions
-            if not has_rename:
-                self.ui_manager.show_warning(f"Please set a valid filename for {defect['name']} before saving.")
-                return False
-            
-            # Check if custom filename suffix is empty
-            if not has_custom_suffix:
-                self.ui_manager.show_warning(f"Please fill in the Custom Filename Suffix field for {defect['name']} before saving.")
-                return False
-            
-            if not has_result_text:
-                self.ui_manager.show_warning(f"Please fill in the Result field for {defect['name']} before saving.")
+        if not defects:
+            self.logger.warning("No defects to save")
+            self.ui_manager.update_status("No defects to save")
+            return False
+        
+        # Validate all defects before saving
+        for index, defect in enumerate(defects):
+            # Skip defects with no rectangles or name
+            if not defect.get("rectangles") or len(defect["rectangles"]) == 0:
+                self.logger.warning(f"Defect {index} has no rectangles")
+                self.ui_manager.show_warning(f"Defect '{defect.get('name')}' has no rectangles. Please draw at least one rectangle.")
+                # Select the defect that needs attention
+                self.ui_manager.select_defect(index)
                 return False
                 
-            if not has_rectangles:
-                self.ui_manager.show_warning(f"Please create at least one rectangle for {defect['name']} before saving.")
+            if not defect.get("name"):
+                self.logger.warning(f"Skipping defect {index}: No name")
+                continue
+            
+            # Check if there's a custom suffix (indicated by a colon in the rename field)
+            has_custom_suffix = False
+            if defect and "rename" in defect:
+                # Check if there's a colon AND content after the colon
+                if ":" in defect["rename"]:
+                    suffix = defect["rename"].split(":", 1)[1]
+                    has_custom_suffix = bool(suffix.strip())
+            
+            if not has_custom_suffix:
+                self.logger.warning(f"Defect {index} has no custom filename suffix")
+                self.ui_manager.show_warning(f"Defect '{defect.get('name')}' has no custom filename suffix. Please add a custom suffix.")
+                # Select the defect that needs attention
+                self.ui_manager.select_defect(index)
+                return False
+            
+            # Get the result text for this defect
+            result_text = defect.get("result_text", "")
+            
+            # Check if result text is empty
+            if not result_text.strip():
+                self.logger.warning(f"Defect {index} has empty result text")
+                self.ui_manager.show_warning(f"Defect '{defect.get('name')}' has no result text. Please add a result description.")
+                # Select the defect that needs attention
+                self.ui_manager.select_defect(index)
                 return False
         
-        # Get all defects (again, in case any updates happened during validation)
-        defects = self.defect_manager.get_defects()
-        print(f"Total defects count: {len(defects)}")
+        # Get the original image (without any drawings)
+        original_image = self.image_processor.get_original_image()
+        if not original_image:
+            self.logger.error("Failed to get original image")
+            return False
         
-        # Process and save image for each defect
-        current_image = self.image_processor.get_original_image()
+        # Get the current filename
         current_filename = self.image_processor.get_current_filename()
         
-        save_success = True
-        defects_saved = 0
+        # Save each defect as a separate image
+        save_count = 0
+        excel_error = None  # Track Excel errors specifically
         
-        # Make a deep copy of defects before processing to avoid issues with clearing
-        defects_copy = copy.deepcopy(defects)
-        
-        for i, defect in enumerate(defects_copy):
-            print(f"Processing defect {i+1}: {defect['name']}, rectangles: {len(defect['rectangles'])}")
-            # Only save defects that have at least one rectangle
-            if len(defect["rectangles"]) > 0:
-                # Use each defect's individual result text
-                defect_result_text = defect.get("result_text", "")
-                success = self.file_manager.save_image_with_defect(
-                    original_image=current_image,
-                    defect=defect,
-                    original_filename=current_filename,
-                    result_text=defect_result_text
-                )
-                if success:
-                    defects_saved += 1
-                save_success = save_success and success
-            else:
-                print(f"Skipping defect {defect['name']} because it has no rectangles")
-        
-        if save_success:
-            # Use status bar instead of message box for successful saves
-            self.ui_manager.update_status(f"All defects saved successfully. Total: {defects_saved}")
-        else:
-            # Still show warning for failures
-            self.ui_manager.show_warning(f"Some defects could not be saved. Saved: {defects_saved}/{len(defects)}")
+        for index, defect in enumerate(defects):
+            self.logger.debug(f"Processing defect {index}: {defect.get('name')}")
             
-        return save_success
+            # Use file_manager to save the image with defect
+            success, error_msg = self.file_manager.save_image_with_defect(
+                    original_image, 
+                    defect, 
+                    current_filename,
+                    defect.get("result_text", "")
+                )
+                
+            if success:
+                save_count += 1
+                self.logger.info(f"Saved defect {index}: {defect.get('name')} as {defect.get('rename')}")
+            else:
+                self.logger.error(f"Failed to save defect {index}: {defect.get('name')} - {error_msg}")
+                # Check if this is an Excel error
+                if "open in another program" in error_msg:
+                    excel_error = error_msg
+                    # Break the loop as we can't continue if Excel is open
+                    break
+        
+        # Check if we had an Excel error
+        if excel_error:
+            self.logger.error(f"Excel error: {excel_error}")
+            self.ui_manager.show_warning(f"Excel Warning: {excel_error}")
+            return False
+            
+        # Update status with save results
+        if save_count > 0:
+            status_msg = f"Saved {save_count} defect image(s)"
+            self.logger.info(status_msg)
+            self.ui_manager.update_status(status_msg)
+            return True
+        else:
+            status_msg = "No defects were saved"
+            self.logger.warning(status_msg)
+            self.ui_manager.update_status(status_msg)
+            return False
     
     def save_and_next(self):
         """Save and go to next image"""
@@ -759,6 +769,50 @@ class AppController:
                 self.logger.debug(f"Before save_image: Defect {current_selected_index} has name={defect.get('name')}, "
                                 f"rename={defect.get('rename')}, result_text={defect.get('result_text', '')[:30]}...")
         
+        # Perform validations for all defects before saving
+        defects = self.defect_manager.get_defects()
+        for index, defect in enumerate(defects):
+            # Save current results text to the defect
+            if index == current_selected_index:
+                current_results_text = self.ui_manager.get_result_text()
+                self.logger.debug(f"Before saving: Updating result text for defect {index}: '{current_results_text}'")
+                self.defect_manager.update_result_text(index, current_results_text)
+            
+            # Get updated result text from the defect
+            result_text = self.defect_manager.get_defect_result_text(index)
+            self.logger.debug(f"DefectManager: Retrieved result text for defect {index}: '{result_text}'")
+            
+            # Check for required data in each defect
+            if not defect.get("rectangles") or len(defect["rectangles"]) == 0:
+                self.logger.warning(f"Defect {index} has no rectangles")
+                self.ui_manager.show_warning(f"Defect '{defect.get('name')}' has no rectangles. Please draw at least one rectangle.")
+                return
+                
+            # Check if there's a custom suffix (indicated by a colon in the rename field)
+            has_custom_suffix = False
+            if defect and "rename" in defect:
+                # Check if there's a colon AND content after the colon
+                if ":" in defect["rename"]:
+                    suffix = defect["rename"].split(":", 1)[1]
+                    has_custom_suffix = bool(suffix.strip())
+            
+            if not has_custom_suffix:
+                self.logger.warning(f"Defect {index} has no custom filename suffix")
+                self.ui_manager.show_warning(f"Defect '{defect.get('name')}' has no custom filename suffix. Please add a custom suffix.")
+                # Select the defect that needs attention
+                self.ui_manager.select_defect(index)
+                return
+                
+            # Check if result text is empty
+            self.logger.debug(f"Defect {index}: Name={defect.get('name')}, Rename={defect.get('rename')}, Result Text='{result_text}'")
+            if not result_text.strip():
+                self.logger.warning(f"Defect {index} has empty result text")
+                self.ui_manager.show_warning(f"Defect '{defect.get('name')}' has no result text. Please add a result description.")
+                # Select the defect that needs attention
+                self.ui_manager.select_defect(index)
+                return
+                
+        # All validations passed, proceed with saving
         if self.save_image():
             # Debug logging after save_image
             self.logger.debug(f"After save_image: Current defect count is {self.defect_manager.get_defect_count()}")
@@ -814,113 +868,6 @@ class AppController:
             self.load_image(prev_index)
             self.ui_manager.clear_result_text()
 
-    def save_image_with_defect(self, original_image, defect, original_filename, result_text=""):
-        """Save an image with the specified defect (containing multiple rectangles)"""
-        if not original_image or not defect:
-            print(f"Missing original image or defect data")
-            return False
-        
-        # Check if the defect has any rectangles
-        if not defect.get("rectangles") or len(defect["rectangles"]) == 0:
-            print(f"No rectangles found in defect: {defect['name']}")
-            return False
-        
-        # Log defect details for debugging
-        print(f"Saving defect: {defect['name']}, Rectangle count: {len(defect['rectangles'])}")
-        
-        # Create a copy of the original image to draw on
-        output_image = original_image.copy()
-        
-        # Check if the image supports transparency
-        if output_image.mode != 'RGBA' and output_image.mode != 'RGB':
-            output_image = output_image.convert('RGBA')
-            
-        draw = ImageDraw.Draw(output_image, 'RGBA')  # Use RGBA mode for transparency
-        
-        # Draw all rectangles for this defect
-        rectangles_drawn = 0
-        for i, rectangle in enumerate(defect["rectangles"]):
-            # Get the rectangle coordinates
-            coords = rectangle["coords"]
-            
-            # Log rectangle info for debugging
-            print(f"Processing rectangle {i+1} with coords: {coords}")
-            
-            # Ensure coords are in the correct format and contain valid values
-            if not coords or len(coords) != 4:
-                print(f"Invalid coordinates: {coords}")
-                continue
-                
-            # Ensure the coordinates are properly ordered (x1 < x2, y1 < y2)
-            x1, y1, x2, y2 = coords
-            x1, x2 = min(x1, x2), max(x1, x2)
-            y1, y2 = min(y1, y2), max(y1, y2)
-            
-            # Ensure coordinates are within the image bounds
-            img_width, img_height = original_image.size
-            x1 = max(0, min(x1, img_width-1))
-            y1 = max(0, min(y1, img_height-1))
-            x2 = max(0, min(x2, img_width-1))
-            y2 = max(0, min(y2, img_height-1))
-            
-            # Draw the rectangle with sanitized coordinates
-            draw.rectangle([x1, y1, x2, y2], fill=(255, 255, 0, 90), outline=(255, 255, 0, 255))
-            rectangles_drawn += 1
-        
-        # If no rectangles were drawn, return false
-        if rectangles_drawn == 0:
-            return False
-        
-        # CSV log path
-        csv_path = os.path.join(self.destination_folder, "validation_log.csv")
-        csv_exists = os.path.exists(csv_path)
-        
-        # Get new filename for this defect
-        new_filename = defect["rename"]
-        if not new_filename:
-            return False
-        
-        # Add extension from original file
-        _, ext = os.path.splitext(original_filename)
-        new_filepath = os.path.join(self.destination_folder, new_filename + ext)
-        
-        # Save the image
-        try:
-            output_image.save(new_filepath)
-            
-            # Record in CSV log
-            with open(csv_path, 'a', newline='') as csvfile:
-                csv_writer = csv.writer(csvfile)
-                
-                # Write header if file is new
-                if not csv_exists:
-                    csv_writer.writerow([
-                        "Date", "Time", "Original Filename", "New Filename", 
-                        "Defect Name", "Rectangle Count in Defect"
-                    ])
-                
-                # Write data for the defect
-                now = datetime.now()
-                # Get base filename without extension for both original and new filenames
-                original_base_filename, _ = os.path.splitext(original_filename)
-                csv_writer.writerow([
-                    now.strftime("%Y-%m-%d"),
-                    now.strftime("%H:%M:%S"),
-                    original_base_filename,
-                    new_filename,  # Already without extension
-                    defect["name"],
-                    rectangles_drawn  # Number of rectangles actually drawn
-                ])
-            
-            # Update Excel file with results using the Excel Manager
-            self.excel_manager.save_defect_result(self.destination_folder, new_filename + ext, result_text)
-            
-            return True
-            
-        except Exception as e:
-            print(f"Failed to save {new_filename + ext}: {str(e)}")
-            return False
-
     def toggle_logging(self, enabled=None):
         """Toggle logging on or off"""
         if enabled is None:
@@ -946,6 +893,70 @@ class AppController:
 
     def no_defects_found(self):
         """Handle 'No Defects Found' button click - move to next image without saving"""
-        self.logger.info("No defects found - moving to next image without saving")
+        self.logger.info("No defects found - checking if we can move to next image")
+        
+        # Check if there are any defects created
+        defects = self.defect_manager.get_defects()
+        if defects and len(defects) > 0:
+            # If defects exist, they must be valid before moving on
+            has_rectangles = False
+            for defect in defects:
+                if defect.get("rectangles") and len(defect["rectangles"]) > 0:
+                    has_rectangles = True
+                    break
+            
+            if has_rectangles:
+                # If defects with rectangles exist, show warning that they need to be saved first
+                self.logger.warning("Cannot skip image - defects with rectangles exist")
+                self.ui_manager.show_warning("This image has defects with rectangles. Please either save them or delete them before moving to the next image.")
+                return
+        
+        # No defects with rectangles found, safe to move on
+        self.logger.info("Moving to next image without saving")
         self.ui_manager.clear_canvas()
-        self.next_image() 
+        self.next_image()
+
+    def draw_defect_rectangles(self, defect):
+        """Draw all rectangles for a given defect"""
+        if not defect or not defect.get("rectangles"):
+            self.logger.warning(f"No valid defect or rectangles to draw")
+            return 0
+            
+        # Clear existing rectangles
+        self.ui_manager.clear_canvas_elements(["defect", "drawing"])
+        
+        # Get canvas dimensions
+        canvas_dimensions = self.ui_manager.get_canvas_dimensions()
+        
+        rectangles_drawn = 0
+        
+        for i, rectangle in enumerate(defect["rectangles"]):
+            # Get the image coordinates
+            image_coords = rectangle.get("coords")
+            if not image_coords or len(image_coords) != 4:
+                self.logger.warning(f"Invalid coordinates for rectangle {i}: {image_coords}")
+                continue
+                
+            # Convert image coordinates to canvas coordinates
+            canvas_coords = self.image_processor.image_to_canvas_coords(
+                image_coords, canvas_dimensions
+            )
+            
+            if canvas_coords:
+                # Draw the rectangle on the canvas
+                canvas_x1, canvas_y1, canvas_x2, canvas_y2 = canvas_coords
+                
+                # Create a rectangle on the canvas with a tag for later identification
+                rect_id = self.ui_manager.create_rectangle_on_canvas(
+                    canvas_x1, canvas_y1, canvas_x2, canvas_y2,
+                    outline="yellow", width=2, tags="defect"
+                )
+                
+                # Store the canvas rectangle ID in the defect data
+                rectangle["canvas_rect"] = rect_id
+                rectangles_drawn += 1
+        
+        # Force canvas to update again after drawing
+        self.ui_manager.update_canvas()
+        
+        return rectangles_drawn 

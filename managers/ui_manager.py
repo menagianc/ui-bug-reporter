@@ -1051,3 +1051,32 @@ class UIManager:
         if event.widget == self.root:
             # Use a short delay to allow the window to be fully mapped
             self.root.after(100, self._force_right_panel_visible) 
+
+    def clear_canvas_elements(self, tags=None):
+        """Clear specific elements from the canvas"""
+        if tags is None:
+            # Clear all elements if no tags specified
+            tags = ["defect", "drawing"]
+            
+        if isinstance(tags, list):
+            for tag in tags:
+                self.canvas.delete(tag)
+        else:
+            self.canvas.delete(tags)
+            
+        # Force canvas to refresh
+        self.update_canvas()
+    
+    def update_canvas(self):
+        """Force the canvas to update"""
+        self.canvas.update_idletasks()
+        self.canvas.update()
+    
+    def create_rectangle_on_canvas(self, x1, y1, x2, y2, **kwargs):
+        """Create a rectangle on the canvas"""
+        return self.canvas.create_rectangle(x1, y1, x2, y2, **kwargs)
+    
+    def update_rectangle_style(self, rect_id, **kwargs):
+        """Update the style of a rectangle on the canvas"""
+        if rect_id:
+            self.canvas.itemconfig(rect_id, **kwargs) 

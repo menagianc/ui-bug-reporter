@@ -35,7 +35,7 @@ class ExcelManager:
             result_text (str): Result text to save
             
         Returns:
-            bool: True if successful, False otherwise
+            tuple: (bool, str) - (Success/failure, Error message if any)
         """
         excel_path = os.path.join(destination_folder, self.default_excel_filename)
         
@@ -51,10 +51,15 @@ class ExcelManager:
             
             # Save the workbook
             wb.save(excel_path)
-            return True
+            return True, ""
+        except PermissionError:
+            error_msg = f"Cannot access {self.default_excel_filename} because it is open in another program. Please close Excel and try again."
+            print(f"Failed to update Excel file: {error_msg}")
+            return False, error_msg
         except Exception as e:
-            print(f"Failed to update Excel file: {str(e)}")
-            return False
+            error_msg = f"Failed to update Excel file: {str(e)}"
+            print(error_msg)
+            return False, error_msg
     
     def generate_summary_report(self, base_folder):
         """

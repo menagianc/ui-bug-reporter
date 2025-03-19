@@ -5,6 +5,7 @@ from datetime import datetime
 from tkinter import filedialog
 from PIL import Image, ImageDraw
 from managers.excel_manager import ExcelManager
+import logging
 
 class FileManager:
     """
@@ -90,17 +91,19 @@ class FileManager:
     
     def save_image_with_defect(self, original_image, defect, original_filename, result_text=""):
         """Save an image with the specified defect (containing multiple rectangles)"""
+        logger = logging.getLogger("bug_validator")
+        
         if not original_image or not defect:
-            print(f"Missing original image or defect data")
-            return False
+            logger.error(f"Missing original image or defect data")
+            return False, "Missing image or defect data"
         
         # Check if the defect has any rectangles
         if not defect.get("rectangles") or len(defect["rectangles"]) == 0:
-            print(f"No rectangles found in defect: {defect['name']}")
-            return False
+            logger.warning(f"No rectangles found in defect: {defect['name']}")
+            return False, "No rectangles found in defect"
         
         # Log defect details for debugging
-        print(f"Saving defect: {defect['name']}, Rectangle count: {len(defect['rectangles'])}")
+        logger.info(f"Saving defect: {defect['name']}, Rectangle count: {len(defect['rectangles'])}")
         
         # Create a copy of the original image to draw on
         output_image = original_image.copy()
@@ -118,11 +121,11 @@ class FileManager:
             coords = rectangle["coords"]
             
             # Log rectangle info for debugging
-            print(f"Processing rectangle {i+1} with coords: {coords}")
+            logger.debug(f"Processing rectangle {i+1} with coords: {coords}")
             
             # Ensure coords are in the correct format and contain valid values
             if not coords or len(coords) != 4:
-                print(f"Invalid coordinates: {coords}")
+                logger.warning(f"Invalid coordinates: {coords}")
                 continue
                 
             # Ensure the coordinates are properly ordered (x1 < x2, y1 < y2)
@@ -143,7 +146,8 @@ class FileManager:
         
         # If no rectangles were drawn, return false
         if rectangles_drawn == 0:
-            return False
+            logger.warning(f"No valid rectangles to draw for defect: {defect['name']}")
+            return False, "No valid rectangles to draw"
         
         # CSV log path
         csv_path = os.path.join(self.destination_folder, "validation_log.csv")
@@ -152,7 +156,8 @@ class FileManager:
         # Get new filename for this defect
         new_filename = defect["rename"]
         if not new_filename:
-            return False
+            logger.warning(f"No rename value for defect: {defect['name']}")
+            return False, "No rename value for defect"
             
         # Process the filename to include custom suffix if present
         # Format is "filename_number:custom_suffix"
@@ -167,6 +172,7 @@ class FileManager:
         # Save the image
         try:
             output_image.save(new_filepath)
+            logger.info(f"Saved image to {new_filepath}")
             
             # Record in CSV log
             with open(csv_path, 'a', newline='') as csvfile:
@@ -193,10 +199,14 @@ class FileManager:
                 ])
             
             # Update Excel file with results using the Excel Manager
-            self.excel_manager.save_defect_result(self.destination_folder, new_filename + ext, result_text)
+            excel_success, excel_error = self.excel_manager.save_defect_result(self.destination_folder, new_filename + ext, result_text)
+            if not excel_success:
+                logger.error(f"Excel error: {excel_error}")
+                return False, excel_error
             
-            return True
+            return True, ""
             
         except Exception as e:
-            print(f"Failed to save {new_filename + ext}: {str(e)}")
-            return False 
+            error_msg = f"Failed to save {new_filename + ext}: {str(e)}"
+            logger.error(error_msg)
+            return False, error_msg 
